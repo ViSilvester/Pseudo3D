@@ -51,10 +51,10 @@ void renderEntidade(entidade ent, camera cam, Janela janela) {
 	distancia = calcDistancia(ent.pos, cam.pos);
 	angulo = calcAngulo(vetor, extremidade);
 	
-	ent.rect.X = (angulo / cam.FOV)* janela.largura ;
-	ent.rect.Y = (janela.altura / (4))/distancia*100;
-	//ent.rect.W /= distancia;
-	//ent.rect.H /= distancia;
+	ent.rect.W *= 1000/(distancia+1);
+	ent.rect.H *= 1000/(distancia+1);
+	ent.rect.X = (ent.rect.W/2)+janela.largura - ((angulo / cam.FOV) * janela.largura);
+	ent.rect.Y = (janela.altura / 2) - (ent.rect.H / 2);
 
 	drawTexture(ent.tex,&ent.rect,NULL);
 	
@@ -188,6 +188,12 @@ int main(int argc, char* argv[]) {
 			}
 			if (GetKeyState('D') & 0x80000) {
 				cam.ang += 0.1;
+			}
+			if (GetKeyState('W') & 0x80000) {
+				cam.pos.y-= 5;
+			}
+			if (GetKeyState('S') & 0x80000) {
+				cam.pos.y += 5;
 			}
 
 
