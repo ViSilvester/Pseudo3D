@@ -4,6 +4,7 @@
 
 typedef struct { float x; float y;}vector2D;
 typedef struct { vector2D v1; vector2D v2; } parede;
+typedef struct { parede p1; parede p2; parede p3; parede p4; } sector;
 typedef struct { vector2D pos; float ang; Rect rect; Texture tex; } entidade;
 typedef struct { vector2D pos; float ang; float FOV; } camera;
 
@@ -20,7 +21,7 @@ float calcAngulo(vector2D v1, vector2D v2) {
 
 }
 float calcDistancia(vector2D pos1, vector2D pos2) {
-	return sqrt(pos1.x * pos1.x + pos2.y * pos2.y);
+	return sqrt(((pos2.x -pos1.x)* (pos2.x - pos1.x)) + ((pos2.y - pos1.y) * (pos2.y - pos1.y)));
 }
 vector2D radToVector(float ang) {
 	vector2D vetor;
@@ -51,13 +52,27 @@ void renderEntidade(entidade ent, camera cam, Janela janela) {
 	distancia = calcDistancia(ent.pos, cam.pos);
 	angulo = calcAngulo(vetor, extremidade);
 	
-	ent.rect.W *= 1000/(distancia+1);
-	ent.rect.H *= 1000/(distancia+1);
-	ent.rect.X = (ent.rect.W/2)+janela.largura - ((angulo / cam.FOV) * janela.largura);
+	ent.rect.W *= 100/distancia;
+	ent.rect.H *= 100/distancia;
+	ent.rect.X = (janela.largura - ((angulo / cam.FOV) * janela.largura)) - (ent.rect.W / 2);
 	ent.rect.Y = (janela.altura / 2) - (ent.rect.H / 2);
 
 	drawTexture(ent.tex,&ent.rect,NULL);
 	
+}
+void renderVertice(vector2D vertice, camera cam, Janela janela) {
+	float angulo, altura = 100, distancia;
+	vector2D vetor, extremidade, ponto1,ponto2;
+	vetor.x = vertice.x - cam.pos.x; vetor.y = vertice.y - cam.pos.y;
+	extremidade = radToVector(cam.ang + (cam.FOV / 2));
+	angulo = calcAngulo(extremidade, vetor);
+	ponto1.x = ponto2.x = janela.largura - ((angulo / cam.FOV) * janela.largura);
+	distancia = calcDistancia(cam.pos, vertice);
+	altura *= 100 / distancia;
+	ponto1.y = (janela.altura / 2) - (altura / 2);
+	ponto2.y = ponto1.y + altura;
+	drawLine(ponto1.x, ponto1.y, ponto2.x, ponto2.y, 1, 0.3, 0);
+
 }
 vector2D vetorUnitario(vector2D vetor){
 	float modulo = sqrt((vetor.x*vetor.x) + (vetor.y*vetor.y));
@@ -150,15 +165,34 @@ int main(int argc, char* argv[]) {
 	camera cam;
 	entidade inimigo;
 	Texture T_inimigo;
+	vector2D vertices[4];
+	parede paredes[4];
+	sector sec1;
 
+	// player config
 	cam.pos.x = janela.largura / 2;
 	cam.pos.y = janela.altura / 2;
 	cam.ang = 0;
 	cam.FOV = 3.1415 / 3;
-
+	//entity config
 	inimigo.pos.x = janela.largura / 2;
 	inimigo.pos.y = janela.altura / 4;
 	iniRect(&inimigo.rect, 0, 0, 100,200);
+	// map config
+	vertices[0].x = vertices[0].y = 20;
+	vertices[1].x = 900; vertices[1].y = 20;
+	vertices[2].x = 900;  vertices[2].y = 400;
+	vertices[3].x = 20; vertices[3].y = 400;
+
+	paredes[0].v1 = vertices[0]; paredes[0].v2 = vertices[1];
+	paredes[1].v1 = vertices[1]; paredes[1].v2 = vertices[2];
+	paredes[2].v1 = vertices[2]; paredes[2].v2 = vertices[3];
+	paredes[3].v1 = vertices[3]; paredes[3].v2 = vertices[0];
+
+	sec1.p1 = paredes[0];
+	sec1.p2 = paredes[1];
+	sec1.p3 = paredes[2];
+	sec1.p4 = paredes[3];
 
 
 	StartWindow(*argv,argc, &janela);
@@ -190,23 +224,39 @@ int main(int argc, char* argv[]) {
 				cam.ang += 0.1;
 			}
 			if (GetKeyState('W') & 0x80000) {
-				cam.pos.y-= 5;
+				cam.pos.x = cam.pos.x+(radToVector(cam.ang).x*5);
+				cam.pos.y = cam.pos.y+(radToVector(cam.ang).y*5);
 			}
 			if (GetKeyState('S') & 0x80000) {
-				cam.pos.y += 5;
+				cam.pos.x = cam.pos.x + (-radToVector(cam.ang).x * 5);
+				cam.pos.y = cam.pos.y + (-radToVector(cam.ang).y * 5);
 			}
 
 
 			BeginDrawSection();
 
-			//render player
-			drawCircle(cam.pos.x, cam.pos.y, 10, 1, 0, 0);
-			drawLine(cam.pos.x, cam.pos.y, cam.pos.x + radToVector(cam.ang).x * 50, cam.pos.y + radToVector(cam.ang).y * 50, 1, 1, 0);
+			// render map
 
+			for (i = 0; i < 4; i++) {
+				vector2D vetor;
+				vetor.x = vertices[i].x - cam.pos.x;
+				vetor.y = vertices[i].y - cam.pos.y;
+				drawCircle(vertices[i].x, vertices[i].y, 5, 1,0.3,0);
+				if (calcAngulo(vetor, radToVector(cam.ang))< cam.FOV/2) {
+					renderVertice(vertices[i], cam, janela);
+				}
+			}
+
+			// render inimigo
+		
 			if (visibilidadeEntidade(inimigo, cam)) {
 				drawCircle(inimigo.pos.x, inimigo.pos.y, 10, 0, 0, 1);
 				renderEntidade(inimigo, cam, janela);
 			}
+
+			drawCircle(cam.pos.x, cam.pos.y, 10, 1, 0, 0);
+			drawLine(cam.pos.x, cam.pos.y, cam.pos.x + radToVector(cam.ang).x * 50, cam.pos.y + radToVector(cam.ang).y * 50, 1, 1, 0);
+
 
 			RefreshBuffer(&janela.hDC);
 			
@@ -221,8 +271,6 @@ int main(int argc, char* argv[]) {
 
 			SetWindowTextA(janela.hwnd, str);
 
-
-			
 		}
 	}
 
